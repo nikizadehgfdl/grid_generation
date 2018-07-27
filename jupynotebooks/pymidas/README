@@ -1,0 +1,4 @@
+These are the minimum set of tools in th MIDAS package required to generate the grid files.
+Extracted from MIDAS package by
+git clone https://github.com/mjharriso/MIDAS.git
+cd MIDAS; git checkout fd8160cf259fd33009749ee8d7cb4e7281ed0293 
