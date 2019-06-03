@@ -297,9 +297,17 @@ def generate_grid_metrics(x,y,axis_units='degrees',Re=_default_Re, latlon_areafi
     angle_dx = angle_dx /PI_180
     return dx,dy,area,angle_dx
 
+def myhash(x):
+    import hashlib
+    y = np.zeros( x.shape )
+    y[:] = x[:]
+    return hashlib.sha256(y).hexdigest()
 
-def write_nc(x,y,dx,dy,area,angle_dx,axis_units='degrees',fnam=None,format='NETCDF3_CLASSIC',description=None,history=None,source=None,no_changing_meta=None):
+def write_nc(x,y,dx,dy,area,angle_dx,axis_units='degrees',fnam=None,format='NETCDF3_CLASSIC',description=None,history=None,source=None,no_changing_meta=None,debug=True):
     import netCDF4 as nc
+
+    if debug:
+      print('sha256:', myhash(x), myhash(y), myhash(dx), myhash(dy), myhash(area), fnam)
 
     if fnam is None:
       fnam='supergrid.nc'
@@ -321,12 +329,9 @@ def write_nc(x,y,dx,dy,area,angle_dx,axis_units='degrees',fnam=None,format='NETC
     xv.units='degrees'
     yv[:]=y
     xv[:]=x
-#    tile[0:4]='tile1'
-    tile[0]='t'
-    tile[1]='i'
-    tile[2]='l'
-    tile[3]='e'
-    tile[4]='1'
+    stringvals = np.empty(1,'S'+repr(len(tile)))
+    stringvals[0] = 'tile1'
+    tile[:] = nc.stringtochar(stringvals)
     dyv=fout.createVariable('dy','f8',('ny','nxp'))
     dyv.units='meters'
     dyv[:]=dy
