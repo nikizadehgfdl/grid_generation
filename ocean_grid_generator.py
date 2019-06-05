@@ -279,14 +279,28 @@ def generate_grid_metrics(x,y,axis_units='degrees',Re=_default_Re, latlon_areafi
     dx_j = mdist(np.roll(x,shift=-1,axis=0),x)
     dx = metric*metric*(dy_i*dy_i + dx_i*dx_i*np.cos(ymid_i*PI_180)*np.cos(ymid_i*PI_180))
     dx = np.sqrt(dx)
+    print('sha256:', myhash(dx_j), 'dx_j metrics')
+    print('sha256:', myhash(dy_j), 'dy_j metrics')
+    print('sha256:', myhash(ymid_j), 'ymid_j metrics')
     dy = metric*metric*(dy_j*dy_j + dx_j*dx_j*np.cos(ymid_j*PI_180)*np.cos(ymid_j*PI_180))
+    print('sha256:', myhash(dy), 'dy**2 metrics')
     dy = np.sqrt(dy)
+    print('sha256:', myhash(dy), 'dy metrics')
     dx=dx[:,:-1]
     dy=dy[:-1,:]
+    print('sha256:', myhash(dy), 'dy metrics')
+    #lm = ( 0.5 * ( y[:,1:] + y[:,:-1] ) ) * ( np.pi/180. )
+    #dx_i,dy_i = x[:,1:] - x[:,:-1], y[:,1:] - y[:,:-1]
+    #dx = metric * np.sqrt( dy_i**2 + (dx_i*np.cos(lm))**2 )
+    #lm = ( 0.5 * ( y[1:,:] + y[:-1,:] ) ) * ( np.pi/180. )
+    #dx_j,dy_j = x[1:,:] - x[:-1,:], y[1:,:] - y[:-1,:]
+    #dy = metric * np.sqrt( dy_j**2 + (dx_j*np.cos(lm))**2 )
     if(latlon_areafix):
+        # THIS IS WRONG (shift + not the right area)
         delsin_j = np.roll(np.sin(y*PI_180),shift=-1,axis=0) - np.sin(y*PI_180)
         area=metric*metric*dx_i[:-1,:-1]*delsin_j[:-1,:-1]/PI_180
     else:
+        # THIS IS WRONG (shift + not the right area)
         area=dx[:-1,:]*dy[:,:-1]    
     angle_dx=np.zeros((nytot,nxtot))
 #    angle_dx = np.arctan2(dy_i,dx_i)/PI_180      
