@@ -305,7 +305,7 @@ def generate_grid_metrics(x,y,axis_units='degrees',Re=_default_Re, latlon_areafi
     return dx,dy,area,angle_dx
 
 
-def write_nc(x,y,dx,dy,area,angle_dx,axis_units='degrees',fnam=None,format='NETCDF3_CLASSIC',description=None,history=None,source=None,no_changing_meta=None):
+def write_nc(x,y,dx,dy,area,angle_dx,axis_units='degrees',fnam=None,format='NETCDF3_64BIT',description=None,history=None,source=None,no_changing_meta=None):
     import netCDF4 as nc
 
     if fnam is None:
@@ -768,6 +768,7 @@ def main(argv):
         #We may need to cut the whole SC grid and some of the SO
         #Cut the grid at south according to the options!
         cut=False
+        hasSC=True
         jcut=0
         if(south_cutoff_row > 0):
             cut=True
@@ -777,32 +778,33 @@ def main(argv):
             jcut = 1 + np.nonzero(phiSC[:,0] < south_cutoff_ang)[0][-1]
 
         if(cut):
-            #only SC needs to be cut
-            if(jcut<lamSC.shape[0]):
-                if(ensure_nj_even and (phiSC.shape[0]-jcut)%2 == 0 ):
-                    jcut = jcut -1            
-                    print("Cutting SC grid rows 0 to ", jcut)
-                    lamSC = lamSC[jcut:,:]
-                    phiSC = phiSC[jcut:,:]
-                    dxSC = dxSC[jcut:,:]
-                    dySC = dySC[jcut:,:]
-                    areaSC = areaSC[jcut:,:]
-                    angleSC = angleSC[jcut:,:]
-                    #whole SC and some of SO need to be cut
-            else:
+            if(jcut<lamSC.shape[0]): #only SC needs to be cut
+                if((areaSC.shape[0]-jcut-1)%2 == 0 and ensure_nj_even):
+                    print("   SC: The number of j's is not even. Fixing this by cutting one row at south.")
+                    jcut = jcut+1
+                print("Cutting SC grid rows 0 to ", jcut)
+                lamSC = lamSC[jcut:,:]
+                phiSC = phiSC[jcut:,:]
+                dxSC = dxSC[jcut:,:]
+                dySC = dySC[jcut:,:]
+                areaSC = areaSC[jcut:,:]
+                angleSC = angleSC[jcut:,:]
+            else: #whole SC and some of SO need to be cut
+                hasSC=False
                 jcut_SO = max(jcut-lamSC.shape[0], 1 + np.nonzero(phiSO[:,0] < south_cutoff_ang)[0][-1])
-                if(ensure_nj_even and (phiSO.shape[0]-jcut_SO)%2 == 0 ):
-                    jcut_SO = jcut_SO -1            
-                    print("No SC grid remained. Cutting SO grid rows 0 to ", jcut_SO)
-                    lamSO = lamSO[jcut_SO:,:]
-                    phiSO = phiSO[jcut_SO:,:]
-                    dxSO = dxSO[jcut_SO:,:]
-                    dySO = dySO[jcut_SO:,:]
-                    areaSO = areaSO[jcut_SO:,:]
-                    angleSO = angleSO[jcut_SO:,:]
+                if((areaSO.shape[0]-jcut_SO-1)%2 == 0 and ensure_nj_even):
+                    print("   SO: The number of j's is not even. Fixing this by cutting one row at south.")
+                    jcut_SO = jcut_SO+1
+                print("No SC grid remained. Cutting SO grid rows 0 to ", jcut_SO)
+                lamSO = lamSO[jcut_SO:,:]
+                phiSO = phiSO[jcut_SO:,:]
+                dxSO = dxSO[jcut_SO:,:]
+                dySO = dySO[jcut_SO:,:]
+                areaSO = areaSO[jcut_SO:,:]
+                angleSO = angleSO[jcut_SO:,:]
                     
         if(write_subgrid_files):
-            if(jcut<lamSC.shape[0]):
+            if(hasSC):
                 write_nc(lamSC,phiSC,dxSC,dySC,areaSC,angleSC,axis_units='degrees',fnam=gridfilename+"SC.nc",description=desc,history=hist,source=source)
             else:
                 print("There remained no South Pole cap grid because of the number of rows cut= ", jcut, lamSC.shape[0])
@@ -826,7 +828,7 @@ def main(argv):
         #      as a result y1 and dy1 may become inconsistent?
         #
         cats = 0 #number of joins
-        if(jcut<lamSC.shape[0]):
+        if(hasSC):
             x1=np.concatenate((lamSC[:-1,:],lamSO),axis=0) 
             y1=np.concatenate((phiSC[:-1,:],phiSO),axis=0)
             dx1=np.concatenate((dxSC[:-1,:],dxSO),axis=0)
