@@ -1,23 +1,24 @@
 TARGS = ocean_hgrid_res4.0.nc \
         ocean_hgrid_res1.0.nc \
         ocean_hgrid_res0.5.nc \
-        ocean_hgrid_res0.5_MIDAS.nc \
-	ocean_hgrid_res0.25_MIDAS.nc \
 	ocean_hgrid_res0.25.nc \
-	ocean_hgrid_res0.125.nc \
-	ocean_hgrid_res0.125_old.nc
+	ocean_hgrid_res0.125.nc
+#	ocean_hgrid_res0.125_old.nc
+#       ocean_hgrid_res0.5_MIDAS.nc \
+#	ocean_hgrid_res0.25_MIDAS.nc \
 
 all: $(TARGS) hash.md5
 	cat hash.md5
+	md5sum ocean_hgrid*[0-9].nc
 	md5sum -c hash.md5
-       
+
 #Note: --no_changing_meta arg is used to avoid putting time/platform dependent info in the files so that they can  be checksumed.
 #      Please do not use this arg for normal grid generation, it prevents adding useful information to meta data.
 ocean_hgrid_res4.0.nc:
 	./ocean_grid_generator.py -f ocean_hgrid_res4.0.nc -r 0.25 --rdp 0 --no_changing_meta --write_subgrid_files
 ocean_hgrid_res1.0.nc:
 	./ocean_grid_generator.py -f ocean_hgrid_res1.0.nc -r 1.0  --rdp 0 --no_changing_meta --write_subgrid_files
-ocean_hgrid_res0.5.nc: 
+ocean_hgrid_res0.5.nc:
 	./ocean_grid_generator.py -f ocean_hgrid_res0.5.nc -r 2    --rdp 0 --no_changing_meta  --write_subgrid_files
 ocean_hgrid_res0.5_MIDAS.nc:
 	#module swap python/2.7.3_workstation On gfdl pan
@@ -41,4 +42,4 @@ check:
 	md5sum -c hash.md5
 
 clean:
-	rm -f $(TARGS) $(DEPS) pickle.*        
+	rm -f *.nc pickle.*
