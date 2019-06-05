@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+from __future__ import print_function
+
 import numpy as np
 import sys, getopt
 import datetime, os, subprocess
@@ -306,16 +308,21 @@ def myhash(x):
 def write_nc(x,y,dx,dy,area,angle_dx,axis_units='degrees',fnam=None,format='NETCDF3_CLASSIC',description=None,history=None,source=None,no_changing_meta=None,debug=True):
     import netCDF4 as nc
 
-    if debug:
-      print('sha256:', myhash(x), myhash(y), myhash(dx), myhash(dy), myhash(area), fnam)
-
     if fnam is None:
       fnam='supergrid.nc'
-    fout=nc.Dataset(fnam,'w',format=format)
+    fout=nc.Dataset(fnam,'w',clobber=True,format=format)
 
     ny=area.shape[0]; nx = area.shape[1]
     nyp=ny+1; nxp=nx+1
     print ('Writing netcdf file with ny,nx= ',ny,nx)
+
+    if debug:
+      print('sha256:', myhash(x), 'x')
+      print('sha256:', myhash(y), 'y')
+      print('sha256:', myhash(dx), 'dx')
+      print('sha256:', myhash(dy), 'dy')
+      print('sha256:', myhash(area), 'area')
+      print('sha256:', myhash(angle_dx), 'angle_dx')
 
     nyp=fout.createDimension('nyp',nyp)
     nxp=fout.createDimension('nxp',nxp)
