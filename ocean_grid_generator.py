@@ -217,6 +217,8 @@ def generate_displaced_pole_grid(Ni,Nj_scap,lon0,lenlon,lon_dp,r_dp,lat0_SO,doug
     lamc_DP,phic_DP = displaced_pole_cap(X1,Y1,lam_pole=-lon_dp,r_pole=r_dp,lat_joint=lat0_SO,
                                          excluded_fraction=doughnut) 
     print('   number of js=',phic_DP.shape[0])
+    myhash(lamc_DP, 'lamc_DP DP')
+    myhash(phic_DP, 'phic_DP DP')
     return lamc_DP,phic_DP
 
 
@@ -227,6 +229,7 @@ def displaced_pole_cap(lon_grid,lat_grid,lam_pole,r_pole,lat_joint,excluded_frac
     z_0= r_pole * np.exp(1j*lam_pole*PI_180) 
 
     r = np.tan((90+lat_grid) *PI_180)/r_joint
+    r = my_round( r )
 
     #Find the theta that has matching resolution at the unit circle with longitude at the joint
     #This is a conformal transformation the unit circle (inverse to the one below)
@@ -250,9 +253,11 @@ def displaced_pole_cap(lon_grid,lat_grid,lam_pole,r_pole,lat_joint,excluded_frac
     #Niki: The second condition above is ad hoc. Work on a more elaborate condition to get rid of the  discontinuity at lon_grid>60
     #Another adhoc fix for single point correction
     lamcDP[-1,0] = lamcDP[-1,0]-360
+    lamcDP = my_round( lamcDP )
 
     rw=np.absolute(w)
     phicDP = -90+np.arctan(rw*r_joint)/PI_180
+    phicDP = my_round( phicDP )
     if excluded_fraction is not None:
         ny,nx = lon_grid.shape 
         jmin=np.ceil(excluded_fraction*ny)
@@ -748,7 +753,7 @@ def main(argv):
     else:
         doughnut=0.12
         nparts=8
-        Nj_scap = int((nparts/(nparts-1))*halfArc/deltaPhiSO)
+        Nj_scap = int((float(nparts)/float(nparts-1))*halfArc/deltaPhiSO)
         if(not reproduce_MIDAS_grids):
             if(reproduce_old8_grids):
                 Nj_scap=int(refineR*  40)
