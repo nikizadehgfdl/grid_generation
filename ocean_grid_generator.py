@@ -345,10 +345,10 @@ def generate_grid_metrics(x,y,axis_units='degrees',Re=_default_Re, latlon_areafi
         # THIS IS WRONG (shift + not the right area)
         #delsin_j = np.roll(np.sin(y*PI_180),shift=-1,axis=0) - np.sin(y*PI_180)
         #area=metric*metric*dx_i[:-1,:-1]*delsin_j[:-1,:-1]/PI_180
-        lv = np.sin( ( 0.5 * ( y[:,1:] + y[:,:-1] ) ) * PI_180 )
+        sl = my_round( np.sin( lv ) )
         dx_i = mdist( x[:,1:], x[:,:-1] ) * PI_180
         area = (Re**2) * (
-            ( 0.5 * ( dx_i[1:,:] + dx_i[:-1,:] ) ) * ( lv[1:,:] - lv[:-1,:] ) )
+            ( 0.5 * ( dx_i[1:,:] + dx_i[:-1,:] ) ) * ( sl[1:,:] - sl[:-1,:] ) )
     else:
         # THIS IS WRONG (shift + not the right area)
         #area=dx[:-1,:]*dy[:,:-1]
