@@ -198,7 +198,7 @@ def generate_mercator_grid(Ni,phi_s,phi_n,lon0_M,lenlon_M,shift_equator_to_u_poi
         raise Exception("Ooops: Equator is not going to be a u-point")
 
     y_grid_M = np.tile(phi_M.reshape(Nj+1,1),(1,Ni+1))
-    lam_M = lon0_M + np.arange(Ni+1) * lenlon_M/Ni
+    lam_M = lon0_M + np.arange(Ni+1) * lenlon_M/float(Ni)
     x_grid_M = np.tile(lam_M,(Nj+1,1)) 
     print('   number of js=',y_grid_M.shape[0])
     return x_grid_M,y_grid_M
@@ -207,7 +207,7 @@ def generate_mercator_grid(Ni,phi_s,phi_n,lon0_M,lenlon_M,shift_equator_to_u_poi
 def generate_displaced_pole_grid(Ni,Nj_scap,lon0,lenlon,lon_dp,r_dp,lat0_SO,doughnut,nparts=8, ensure_nj_even=True):
     print( 'Generating displaced pole grid bounded at latitude ',lat0_SO  )
     print('   rdp=',r_dp,' , doughnut=',doughnut)
-    x=lon0 + np.arange(Ni+1) * lenlon/Ni
+    x=lon0 + np.arange(Ni+1) * lenlon/float(Ni)
     y=np.linspace(-90.,0.5*(lat0_SO-90.0),Nj_scap//nparts)
     y=np.concatenate((y,np.linspace(y.max(),lat0_SO,1+Nj_scap*(nparts-1)//nparts)))
     if(y.shape[0]%2 == 0 and ensure_nj_even):
