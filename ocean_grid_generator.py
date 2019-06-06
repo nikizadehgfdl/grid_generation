@@ -2,6 +2,7 @@
 
 from __future__ import print_function
 
+import math
 import numpy as np
 import sys, getopt
 import datetime, os, subprocess
@@ -11,26 +12,70 @@ PI_180 = np.pi/180.
 #_default_Re = 6.378e6
 _default_Re = 6371.e3 #MIDAS
 
+def my_arctan(x, n=9):
+    assert x.max()<1.3, "Out of valid range for my_arctan"
+    y=0.
+    for k in range(n):
+        cy = np.cos(y)
+        dy = cy * ( np.sin(y) - x * cy )
+        y = y - dy
+    return y
+
+def my_sqrt(x, n=7):
+    assert x.min()>=0., "negative x for my_sqrt"
+    m,e = np.frexp(x)
+    r = 2**(np.round(e/2))
+    for k in range(n):
+        r[x==0] = 1.
+        r = 0.5 * ( r - x/r )
+    r[x==0] = 0.
+    return r
+
+def my_tan(x, n=11):
+    assert x.max()<0.7, "Out of valid range for my_tan"
+    B = [1./6., 1./30., 1./42., 1./30., 5./66., 691./2730., 7./6., 3617./510., 43867./798., 174611./330., 854513./138.]
+    t,x2 = 0.,x
+    for k in range(n):
+        tp = 2**(2*k+2)
+        c = ( tp * ( tp - 1. ) ) / math.factorial( 2*k+2 ) * B[k]
+        t = t + c * x2
+        x2 = x2 * (x**2)
+    return t
+
+def my_round(x):
+    return (x.astype(np.float32)).astype(np.float64)
+
 def generate_bipolar_cap_grid(Ni,Nj_ncap,lat0_bp,lon_bp,lenlon):
     print( 'Generating bipolar grid bounded at latitude ',lat0_bp  )
     rp=np.tan(0.5*(90-lat0_bp)*PI_180)
     #First define a (lon,lat) coordinate on the Northern hemisphere of the globe sphere
     #such that the resolution of latg matches the desired resolution of the final grid along the symmetry meridian 
-    lon_g = lon_bp  + np.arange(Ni+1) * lenlon/Ni 
+    lon_g = lon_bp  + np.arange(Ni+1) * lenlon/float(Ni)
     lamg = np.tile(lon_g,(Nj_ncap+1,1)) 
-    latg0_cap = lat0_bp + np.arange(Nj_ncap+1) * (90-lat0_bp)/Nj_ncap
+    latg0_cap = lat0_bp + np.arange(Nj_ncap+1) * (90.-lat0_bp)/float(Nj_ncap)
     phig0_cap = np.tile(latg0_cap.reshape((Nj_ncap+1,1)),(1,Ni+1))
     ### symmetry meridian resolution fix 
-    phig = 90-2*np.arctan(np.tan(0.5*(90-phig0_cap)*PI_180)/rp)/PI_180
+    #phig = 90.-2.*np.arctan(np.tan(0.5*(90-phig0_cap)*PI_180)/rp)/PI_180
+    phig = 90.-2.*my_arctan(my_tan(0.5*(90-phig0_cap)*PI_180)/rp)/PI_180
 
     #Simplify  the formulas to avoid division by zero
     #alpha  = np.cos((lamg-lon_p)*PI_180) 
     alpha2 = (np.cos((lamg-lon_bp)*PI_180))**2
+    cosla = np.cos((lamg-lon_bp)*PI_180)
+    #tmp = (lamg-lon_bp)*PI_180
+    tmp = mdist(lamg,lon_bp)*PI_180
+    sinla = np.abs(np.sin(tmp))
     #beta = -np.cotan(phig*PI_180)
-    beta2_inv = (np.tan(phig*PI_180))**2
-    
-    A=np.sqrt(1-alpha2)*np.sin(phig*PI_180) #Actually two equations  +- |A|    
-    B=np.sqrt((1-alpha2)/(1+alpha2*beta2_inv)) #Actually two equations  +- |B|
+    beta2_inv = (np.tan(phig*PI_180))**2    #<----- 0..2e32  !!!!!
+
+    #A=np.sqrt(1.-alpha2)*np.sin(phig*PI_180) #Actually two equations  +- |A|
+    A = sinla*np.sin(phig*PI_180) #Actually two equations  +- |A|
+    #B=np.sqrt((1.-alpha2)/(1.+alpha2*beta2_inv)) #Actually two equations  +- |B|
+    sphig2 = (np.sin(phig*PI_180))**2
+    cphig2 = (np.cos(phig*PI_180))**2
+    cas = cphig2 + alpha2*sphig2
+    B = sinla * np.sqrt(cphig2/cas) #Actually two equations  +- |B|
+    B = my_round( B )
 #   Equivalently we can do the following which has manifest symmetry lam --> 180+lam
 #    A=np.sin((lamg-lon_bp)*PI_180)*np.sin(phig*PI_180) #Actually two equations  +- |A|
 #    A=np.where((lamg-lon_bp)>180,-A,A)
@@ -42,9 +87,11 @@ def generate_bipolar_cap_grid(Ni,Nj_ncap,lat0_bp,lon_bp,lenlon):
     B=np.where(np.abs(beta2_inv)>1.0E10 , 0.0, B)
 
     lamc = np.arcsin(B)/PI_180 
+    lamc = my_round( lamc )
     #phic = np.arcsin(A)/PI_180
     #or use
     chic = np.arccos(A)
+    chic = my_round( chic )
 
     ##But this equation accepts 4 solutions for a given B, {l, 180-l, l+180, 360-l } 
     ##We have to pickup the "correct" root. 
@@ -63,8 +110,11 @@ def generate_bipolar_cap_grid(Ni,Nj_ncap,lat0_bp,lon_bp,lenlon):
 
     #phis = 90 - 2 * np.arctan(rp * np.tan(0.5*(90-phic)*PI_180))/PI_180
     #or equivalently
-    phis = 90 - 2 * np.arctan(rp * np.tan(chic/2))/PI_180
+    phis = 90 - 2 * np.arctan(rp * np.tan(chic*0.5))/PI_180
+    phis = my_round( phis )
     print('   number of js=',phis.shape[0])
+    myhash(lams, 'lams')
+    myhash(phis, 'phis')
     return lams,phis
 
 def bp_lam(x,y,bpeq,rp):
@@ -316,14 +366,19 @@ def generate_grid_metrics(x,y,axis_units='degrees',Re=_default_Re, latlon_areafi
     angle_dx[:,1:-1] = np.arctan2(y[:,2:]-y[:,:-2],(x[:,2:]-x[:,:-2])*np.cos(y[:,1:-1]*PI_180))
     angle_dx[:,0]    = np.arctan2(y[:,1] -y[:,0]  ,(x[:,1] -x[:,0]  )*np.cos(y[:,0]*PI_180))
     angle_dx[:,-1]   = np.arctan2(y[:,-1]-y[:,-2] ,(x[:,-1]-x[:,-2] )*np.cos(y[:,-1]*PI_180))
+    angle_dx = my_round(angle_dx)
     angle_dx = angle_dx /PI_180
+    myhash(dx, 'dx metrics')
+    myhash(dy, 'dy metrics')
+    myhash(area, 'area metrics')
+    myhash(angle_dx, 'angle_dx metrics')
     return dx,dy,area,angle_dx
 
-def myhash(x):
+def myhash(x, label):
     import hashlib
-    y = np.zeros( x.shape )
-    y[:] = x[:]
-    return hashlib.sha256(y).hexdigest()
+    x = np.array(x)
+    h = hashlib.sha256(x).hexdigest()
+    print('sha256:',h,label,'mean =',x.mean(),'min =',x.min(),'max =',x.max(),'ms =',(x**2).mean(),'shape =',x.shape,'nz =',np.count_nonzero(x))
 
 def write_nc(x,y,dx,dy,area,angle_dx,axis_units='degrees',fnam=None,format='NETCDF3_CLASSIC',description=None,history=None,source=None,no_changing_meta=None,debug=True):
     import netCDF4 as nc
