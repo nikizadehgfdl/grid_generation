@@ -308,6 +308,10 @@ def plot_mesh_in_xyz(lam, phi, stride=1, phi_color='k', lam_color='r', lowerlat=
 
 def mdist(x1,x2):
   """Returns positive distance modulo 360."""
+  #a=np.mod(x1-x2+720.,360.)
+  #b=np.mod(x2-x1+720.,360.)
+  #d=np.minimum(a,b)
+  #return d
   return np.minimum( np.mod(x1-x2,360.), np.mod(x2-x1,360.) )
 
 def generate_grid_metrics(x,y,axis_units='degrees',Re=_default_Re, latlon_areafix=False):
@@ -318,12 +322,16 @@ def generate_grid_metrics(x,y,axis_units='degrees',Re=_default_Re, latlon_areafi
       metric=1.e3
     if  axis_units == 'degrees':                        
       metric=Re*PI_180
-    lm = ( 0.5 * ( y[:,1:] + y[:,:-1] ) ) * ( np.pi/180. )
-    dx_i,dy_i = x[:,1:] - x[:,:-1], y[:,1:] - y[:,:-1]
-    dx = metric * np.sqrt( dy_i**2 + (dx_i*np.cos(lm))**2 )
-    lm = ( 0.5 * ( y[1:,:] + y[:-1,:] ) ) * ( np.pi/180. )
-    dx_j,dy_j = x[1:,:] - x[:-1,:], y[1:,:] - y[:-1,:]
-    dy = metric * np.sqrt( dy_j**2 + (dx_j*np.cos(lm))**2 )
+    lv = ( 0.5 * ( y[:,1:] + y[:,:-1] ) ) * PI_180
+    dx_i = mdist( x[:,1:], x[:,:-1] ) * PI_180
+    dy_i = ( y[:,1:] - y[:,:-1] ) * PI_180
+    dx = Re * np.sqrt( dy_i**2 + (dx_i*my_round(np.cos(lv)))**2 )
+    dx = my_round( dx )
+    lu = ( 0.5 * ( y[1:,:] + y[:-1,:] ) ) * PI_180
+    dx_j = mdist( x[1:,:], x[:-1,:] ) * PI_180
+    dy_j = ( y[1:,:] - y[:-1,:] ) * PI_180
+    dy = Re * np.sqrt( dy_j**2 + (dx_j*my_round(np.cos(lu)))**2 )
+    dy = my_round( dy )
     #
     ymid_j = 0.5*(y+np.roll(y,shift=-1,axis=0))
     ymid_i = 0.5*(y+np.roll(y,shift=-1,axis=1))      
@@ -331,26 +339,16 @@ def generate_grid_metrics(x,y,axis_units='degrees',Re=_default_Re, latlon_areafi
     dy_i = np.roll(y,shift=-1,axis=1) - y
     dx_i = mdist(np.roll(x,shift=-1,axis=1),x)
     dx_j = mdist(np.roll(x,shift=-1,axis=0),x)
-    dx = metric*metric*(dy_i*dy_i + dx_i*dx_i*np.cos(ymid_i*PI_180)*np.cos(ymid_i*PI_180))
-    dx = np.sqrt(dx)
-    print('sha256:', myhash(dx_j), 'dx_j metrics')
-    print('sha256:', myhash(dy_j), 'dy_j metrics')
-    print('sha256:', myhash(ymid_j), 'ymid_j metrics')
-    #dy = metric*metric*(dy_j*dy_j + dx_j*dx_j*np.cos(ymid_j*PI_180)*np.cos(ymid_j*PI_180))
-    print('sha256:', myhash(dy), 'dy**2 metrics')
-    #dy = metric*np.sqrt(dy)
-    print('sha256:', myhash(dy), 'dy metrics')
-    dx=dx[:,:-1]
+    #dx=dx[:,:-1]
     #dy=dy[:-1,:]
-    print('sha256:', myhash(dy), 'dy metrics')
     if(latlon_areafix):
         # THIS IS WRONG (shift + not the right area)
         #delsin_j = np.roll(np.sin(y*PI_180),shift=-1,axis=0) - np.sin(y*PI_180)
         #area=metric*metric*dx_i[:-1,:-1]*delsin_j[:-1,:-1]/PI_180
-        lm = np.sin( ( 0.5 * ( y[:,1:] + y[:,:-1] ) ) * ( np.pi/180. ) )
-        dx_i = ( x[:,1:] - x[:,:-1] ) * ( np.pi/180. )
+        lv = np.sin( ( 0.5 * ( y[:,1:] + y[:,:-1] ) ) * PI_180 )
+        dx_i = mdist( x[:,1:], x[:,:-1] ) * PI_180
         area = (Re**2) * (
-            ( 0.5 * ( dx_i[1:,:] + dx_i[:-1,:] ) ) * ( lm[1:,:] - lm[:-1,:] ) )
+            ( 0.5 * ( dx_i[1:,:] + dx_i[:-1,:] ) ) * ( lv[1:,:] - lv[:-1,:] ) )
     else:
         # THIS IS WRONG (shift + not the right area)
         #area=dx[:-1,:]*dy[:,:-1]
@@ -389,12 +387,12 @@ def write_nc(x,y,dx,dy,area,angle_dx,axis_units='degrees',fnam=None,format='NETC
     print ('Writing netcdf file with ny,nx= ',ny,nx)
 
     if debug:
-      print('sha256:', myhash(x), 'x')
-      print('sha256:', myhash(y), 'y')
-      print('sha256:', myhash(dx), 'dx')
-      print('sha256:', myhash(dy), 'dy')
-      print('sha256:', myhash(area), 'area', area.sum())
-      print('sha256:', myhash(angle_dx), 'angle_dx')
+      myhash(x, 'x')
+      myhash(y, 'y')
+      myhash(dx, 'dx')
+      myhash(dy, 'dy')
+      myhash(area, 'area')
+      myhash(angle_dx, 'angle_dx')
 
     nyp=fout.createDimension('nyp',nyp)
     nxp=fout.createDimension('nxp',nxp)
