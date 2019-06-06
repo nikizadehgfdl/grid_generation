@@ -433,8 +433,8 @@ def write_nc(x,y,dx,dy,area,angle_dx,axis_units='degrees',fnam=None,format='NETC
 
 def generate_latlon_grid(lni,lnj,llon0,llen_lon,llat0,llen_lat, ensure_nj_even=True):
     print('Generating regular lat-lon grid between latitudes ', llat0, llat0+llen_lat)
-    llonSP = llon0 + np.arange(lni+1) * llen_lon/lni
-    llatSP = llat0 + np.arange(lnj+1) * llen_lat/lnj
+    llonSP = llon0 + np.arange(lni+1) * llen_lon/float(lni)
+    llatSP = llat0 + np.arange(lnj+1) * llen_lat/float(lnj)
     if(llatSP.shape[0]%2 == 0 and ensure_nj_even):
         print("   The number of j's is not even. Fixing this by cutting one row at south.")
         llatSP = np.delete(llatSP,0,0)
