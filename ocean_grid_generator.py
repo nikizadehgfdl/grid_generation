@@ -234,15 +234,26 @@ def lagrange_interp(x,y,q):
     """Lagrange polynomial interpolation. Retruns f(q) which f(x) passes through four data
        points at x[0..3], y[0..3]."""
     # n - numerator, d - denominator
-    n0 = ( q - x[1] ) * ( q - x[2] ) * ( q - x[3] )
-    d0 = ( x[0] - x[1] ) * ( x[0] - x[2] ) * ( x[0] - x[3] )
-    n1 = ( q - x[0] ) * ( q - x[2] ) * ( q - x[3] )
-    d1 = ( x[1] - x[0] ) * ( x[1] - x[2] ) * ( x[1] - x[3] )
-    n2 = ( q - x[0] ) * ( q - x[1] ) * ( q - x[3] )
-    d2 = ( x[2] - x[0] ) * ( x[2] - x[1] ) * ( x[2] - x[3] )
-    n3 = ( q - x[0] ) * ( q - x[1] ) * ( q - x[2] )
-    d3 = ( x[3] - x[0] ) * ( x[3] - x[1] ) * ( x[3] - x[2] )
-    return ( (n0/d0)*y[0] + (n3/d3)*y[3] ) + ( (n1/d1)*y[1] + (n2/d2)*y[2] )
+    if(len(x) == 4):
+        n0 = ( q - x[1] ) * ( q - x[2] ) * ( q - x[3] )
+        d0 = ( x[0] - x[1] ) * ( x[0] - x[2] ) * ( x[0] - x[3] )
+        n1 = ( q - x[0] ) * ( q - x[2] ) * ( q - x[3] )
+        d1 = ( x[1] - x[0] ) * ( x[1] - x[2] ) * ( x[1] - x[3] )
+        n2 = ( q - x[0] ) * ( q - x[1] ) * ( q - x[3] )
+        d2 = ( x[2] - x[0] ) * ( x[2] - x[1] ) * ( x[2] - x[3] )
+        n3 = ( q - x[0] ) * ( q - x[1] ) * ( q - x[2] )
+        d3 = ( x[3] - x[0] ) * ( x[3] - x[1] ) * ( x[3] - x[2] )
+        return ( (n0/d0)*y[0] + (n3/d3)*y[3] ) + ( (n1/d1)*y[1] + (n2/d2)*y[2] )
+    elif(len(x) == 3):
+        n0 = ( q - x[1] ) * ( q - x[2] )
+        d0 = ( x[0] - x[1] ) * ( x[0] - x[2] )
+        n1 = ( q - x[0] ) * ( q - x[2] )
+        d1 = ( x[1] - x[0] ) * ( x[1] - x[2] )
+        n2 = ( q - x[0] ) * ( q - x[1] )
+        d2 = ( x[2] - x[0] ) * ( x[2] - x[1] )
+        return ( (n0/d0)*y[0] ) + ( (n1/d1)*y[1] + (n2/d2)*y[2] )
+    else:
+        raise Exception('lagrange_interp: unsupported degree of intepolation')
 
 def y_mercator(Ni, phi):
     """Equation (1)"""
@@ -288,7 +299,7 @@ def generate_mercator_grid(Ni,phi_s,phi_n,lon0_M,lenlon_M,refineR,shift_equator_
     if(equator_index%2 == 0):
         raise Exception("Ooops: Equator is not going to be a u-point")
 
-    if(enhanced_equatorial):
+    if(enhanced_equatorial and refineR == 2):
         print ('   Enhancing the equator region resolution')
         #Enhance the lattitude resolution between 30S and 30N 
         #Set a constant high res lattitude grid spanning 10 degrees centered at the Equator. 
@@ -317,6 +328,66 @@ def generate_mercator_grid(Ni,phi_s,phi_n,lon0_M,lenlon_M,refineR,shift_equator_
 
         nodes = [0,1,N_cub-2,N_cub-1]
         phi_nodes = [phi_s,phi_s+dphi_s,phi_e-dphi_e,phi_e]
+        q=np.arange(N_cub)
+        
+        if(cubic_lagrange_interp):
+            phi2 = lagrange_interp(nodes,phi_nodes,q)
+        elif(cubic_scipy): #MIDAS 
+            import scipy.interpolate
+            f2=scipy.interpolate.interp1d(nodes,phi_nodes,kind='cubic')
+            jInd2=np.arange(N_cub, dtype=float)
+            phi2=f2(jInd2)
+
+        print("   Meridional range of pure Mercator=(", phi1[0],",", phi1[-2],") U (", -phi1[-2],",", -phi1[0],")." )
+        print("   Meridional range of cubic interpolation=(", phi2[0],"," , phi2[-2],") U (",-phi2[-2],",",-phi2[0],")." )
+        phi3=np.concatenate((phi1[0:-1],phi2))
+
+        phi_s = phi3[-1]
+        phi4=np.linspace(phi_s,0,N_enh)
+        print("   Meridional range of enhanced resolution=(", phi4[0],",", -phi4[0],").")
+        print("   Meridional value of enhanced resolution=", phi4[1]-phi4[0])
+        phi5=np.concatenate((phi3[0:-1],phi4))
+        #Make the grid symmetric around the equator!!!!
+        phi_M = np.concatenate((phi5[0:-1],-phi5[::-1]))
+
+        #limit the upper lattitude by the requested phi_n
+        j_phi_n = np.where(phi_M<phi_n)[0][-1]  #The last index with phi_M<phi_n
+        phi_M = phi_M[0:j_phi_n]
+        Nj = phi_M.shape[0]-1
+
+    elif(enhanced_equatorial and refineR == 1):
+        print ('   Enhancing the equator region resolution')
+        #Enhance the lattitude resolution between 30S and 30N 
+        #Set a constant high res lattitude grid spanning 10 degrees centered at the Equator. 
+        #This construction makes the whole Mercator subgrid symmetric around the Equator.
+        #
+        #Free MIDAS parameters. Where does this come from and how should it change with resolution?
+        phi_enh_d =-10. #Starting lattitude of enhanced resolution grid 
+        phi_cub_d =-18. #Starting lattitude of cubic interpolation 
+        #(-18.,24) , (-19.,26), (-20,28), (-21.,30), (-17.,22)
+        N_cub=25 #24 + 2*int(phi_enh_d-phi_cub_d -8)
+        N_enh=55 #56
+        dphi_e=-phi_enh_d/N_enh #0.13 *2/refineR #Enhanced resolution 10 degrees around the equator
+
+        j_c0d = np.where(phi_M<phi_enh_d)[0][-1] #The last index with phi_M<phi_enh_d
+        j_phi_cub_d = np.where(phi_M<phi_cub_d)[0][-1]  #The last index with phi_M<phi_cub_d
+        dphi = phi_M[1:]-phi_M[0:-1]
+
+        cubic_lagrange_interp = True
+        cubic_scipy = False 
+
+        phi1 = phi_M[0:j_phi_cub_d]
+        phi_s = phi_M[j_phi_cub_d-1]
+        dphi_s = phi_M[j_phi_cub_d]-phi_M[j_phi_cub_d-1]
+        phi_e = phi_enh_d
+
+#        nodes = [0,1,N_cub-2,N_cub-1]
+#        phi_nodes = [phi_s,phi_s+dphi_s,phi_e-dphi_e,phi_e]
+        nodes = [0,1,N_cub-2,N_cub-1]
+        phi_nodes = [phi_s,phi_s+dphi_s,phi_e,phi_e+dphi_e] #Niki: Try this for refineR=2, this is more accurate, it uses the known values as boundary conditions rather than assuming a slope at the interpolated region. 
+#        nodes = [0,1,N_cub-1]
+#        phi_nodes = [phi_s,phi_s+dphi_s,phi_e]
+       
         q=np.arange(N_cub)
         
         if(cubic_lagrange_interp):
@@ -862,6 +933,8 @@ def main(argv):
     phi_s_Merc, phi_n_Merc = -66.85954725, 64.05895973
     if(refineR == 2):
         phi_s_Merc, phi_n_Merc = -68.0, 65.0 #These give a 1/2 degree enhanced equatorial close to MIDAS result
+    elif(refineR == 1):
+        phi_s_Merc, phi_n_Merc = -77.879633933, 59.6 #59.6 #These give a 1/2 degree enhanced equatorial close to MIDAS result
     ###
     #Southern Ocean grid
     ###
@@ -880,6 +953,8 @@ def main(argv):
     Nj_ncap = int(60*refineR*refineS)
     if(refineR == 2):
         Nj_ncap = 119*refineS  
+    elif(refineR == 1):
+        Nj_ncap = 155  
     ###
     #South cap
     ###
